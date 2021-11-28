@@ -1,10 +1,16 @@
-import express, { Request, Response } from 'express';
+import express, { Application, Response } from 'express';
+import  loginRouter  from  './routes/login';
+import morgan from 'morgan';
+import bodyParser from 'body-parser';
 
 const PORT: string = '3001';
-const app: express.Application = express();
+const app: Application = express();
 
+app.use(bodyParser.json());
+app.use(morgan('dev'));
+app.use('/login', loginRouter);
 
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_, res: Response) => {
     res.json({ message: 'hello world'});
 });
 
