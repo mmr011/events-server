@@ -1,12 +1,6 @@
 import { NextFunction, Router, Response, Request } from 'express';
+import { User } from '../shared/models/user.model';
 import * as uuid from 'uuid';
-
-interface User  {
-    email: string;
-    password: string;
-    userName: string;
-    userId: string;
-}
 
 // Test data
 const testUsers: User[] = [
@@ -45,7 +39,7 @@ loginRouter.get('/:userId', (req: Request, res: Response) => {
     const user = req['user'];
 
     if(!user) {
-        res.status(404).json({ message: 'User not found'});
+        res.status(404).json({ message: 'User not found'}); // Further validation of the existance of a user
     } else {
         res.status(200).json({ user: user });
     };
