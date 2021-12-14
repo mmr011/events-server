@@ -5,4 +5,5 @@ export interface Event {
     allDay: boolean;
     startDate: string;
     endDate?: string;
+    registrationCost?: string;
 }

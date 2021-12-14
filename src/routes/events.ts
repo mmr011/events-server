@@ -1,6 +1,9 @@
 import { NextFunction, Router, Response, Request } from 'express';
 import { Event } from '../shared/models/event.model';
 import * as uuid from 'uuid';
+import { validationResult } from 'express-validator';
+import { validEventId, validAllDay, requiredEventValues, validEndDate } from '../shared/validators/valiators';
+
 
 const eventsRouter =  Router();
 
@@ -18,6 +21,8 @@ const  testEvents: Event[] = [
 eventsRouter.param('eventId', (req: Request, res: Response, next: NextFunction, eventId: string) => {
     if(!eventId || eventId === '') {
         res.sendStatus(400);
+    } else if(!uuid.validate(eventId)) {
+        res.status(400).json({ errors: 'Invalid id forma'});
     };
 
     let event = testEvents.find(e => e.eventId === eventId);
@@ -26,18 +31,18 @@ eventsRouter.param('eventId', (req: Request, res: Response, next: NextFunction, 
         next();
     } else {
         res.status(404).json({ message: 'Event not found'}); // If not, send 404 error message
-    }
-});
-
-eventsRouter.get('/', (res: Response) => {
-    if(testEvents && testEvents.length > 0) {
-        res.status(200).json({ events: testEvents });
-    } else {
-        res.sendStatus(404);
     };
 });
 
-eventsRouter.get('/:eventId', (req: Request, res: Response) => {
+eventsRouter.get('/', (_, res: Response) => {
+    if(testEvents) {
+        res.status(200).json({ events: testEvents });
+    } else {
+        res.sendStatus(400);
+    };
+});
+
+eventsRouter.get('/:eventId', validEventId() , (req: Request, res: Response) => {
     const event = req['event'];
 
     if(event) {
@@ -47,18 +52,19 @@ eventsRouter.get('/:eventId', (req: Request, res: Response) => {
     };
 });
 
-eventsRouter.post('/', (req: Request, res: Response) => {
-    const { eventName, startDate, endDate, userId, allDay } = req.query && req.query;
+eventsRouter.post('/',
+        requiredEventValues(),
+        validEndDate(),
+        validAllDay(),
+        (req: Request, res: Response) => {
 
-    // Validate first that the requester is sennding a userId so the new event can be associated with a user 
-    if(!userId || userId === '') {
-        res.status(400).json({ message: 'A user id is required to proceed with creating and event' });
-    };
+    const errors = validationResult(req);
 
-    // Validate that the required fields are sent in the request
-    if(!eventName || !startDate) {
-        res.status(400).json({ message: 'There cannot be missing data when creating a new user' });
+    if(!errors.isEmpty() || errors.array().length > 0) {
+        res.status(400).json({ errors: errors.array() });
     } else {
+        const { eventName, startDate, endDate, userId, allDay } = req.query && req.query;
+
         let newEvent: Event = {
             eventId: uuid.v4(),
             userId: userId as string,
@@ -76,42 +82,58 @@ eventsRouter.post('/', (req: Request, res: Response) => {
 
         res.status(201).json({ newEvent: newEvent, message: 'New event was created successfully' })
     };
-
 });
 
-eventsRouter.put('/:eventId', (req: Request, res: Response) => {
-    let  event = req['event'];
-    const { eventName, startDate, endDate, eventId, allDay } = req.body && req.body as Event;
+eventsRouter.put('/:eventId',
+                requiredEventValues(),
+                validEndDate(),
+                validAllDay(),
+                validEventId(),
+                (req: Request, res: Response) => {
 
-    if(event) {
-        event = {
-            eventName: eventName,
-            startDate: startDate,
-            ...(endDate && endDate !== '') && {
-                endDate: endDate
-            },
-            ...allDay && {
-                allDay: allDay
-            }
+    const errors = validationResult(req);
+
+    if(!errors.isEmpty() || errors.array().length > 0) { 
+        res.status(400).json({ errors: errors.array() });
+    } else{
+        let  event = req['event'];
+        const { eventName, startDate, endDate, eventId, allDay, registrationCost } = req.query && req.query;
+
+        if(eventName) {
+            event.eventName = eventName;
+        };
+
+        if(startDate) {
+            event.startDate = startDate;
+        };
+
+        if(registrationCost) {
+            event.registrationCost = registrationCost;
+        };
+
+        if(endDate) {
+            event.endDate = endDate;
+        };
+
+        if(allDay) {
+            event.allDay = allDay === 'true' ? true : false;
         };
 
         const eventIndex = testEvents.findIndex(e => e.eventId === eventId);
         testEvents.splice(eventIndex, 1, event);
 
         res.status(200).json({ updatedEvent: event, message: 'Event has been successfully updated' });
-    } else {
-        res.sendStatus(400);
     };
 });
 
-eventsRouter.delete('/:eventId', (req: Request, res: Response) => {
+eventsRouter.delete('/:eventId', validEventId(), (req: Request, res: Response) => {
     const event = req['event'];
 
     if(event) {
         const eventIndex = testEvents.findIndex(e => e.eventId === event.eventId);
         testEvents.splice(eventIndex, 1);
 
-        res.status(200).json({ deletedEvent: event, message: 'Event was deleted successfully '});
+        res.status(200).json({ eventId: event.eventId, message: 'Event was deleted successfully '});
     } else {
         res.sendStatus(400);
     };
