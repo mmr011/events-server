@@ -1,6 +1,8 @@
 import { NextFunction, Router, Response, Request } from 'express';
 import { User } from '../shared/models/user.model';
 import * as uuid from 'uuid';
+import { validUser } from '../shared/validators/valiators';
+import { validationResult } from 'express-validator';
 
 // Test data
 const testUsers: User[] = [
@@ -18,6 +20,8 @@ const loginRouter = Router();
 loginRouter.param('userId', (req: Request, res: Response, next: NextFunction, userId: string) => {
     if(!userId || userId === '') {
         res.sendStatus(400);
+    } else if(!uuid.validate(userId)) {
+        res.status(400).json({ errors: 'Invalid id format'});
     };
 
     const user = testUsers.find(u => u.userId === userId);
@@ -46,12 +50,16 @@ loginRouter.get('/:userId', (req: Request, res: Response) => {
 });
 
 // The first step is to create the user
-loginRouter.post('/', (req: Request, res: Response) => {
-    const { email, password, userName } = req.query && req.query;
+loginRouter.post('/',
+    validUser(),
+    (req: Request, res: Response) => {
 
-    if(!email || !password || !userName) {
-        res.status(400).json({ message: 'There cannot be missing data when creating a new user'});
+    const errors = validationResult(req);
+    if(!errors.isEmpty() || errors.array().length > 0) {
+        res.status(400).json({ errors: errors.array() });
     } else {
+        const { email, password, userName } = req.query && req.query;
+
         const user: User = {
             email: email as string,
             password: password as string,
@@ -60,7 +68,7 @@ loginRouter.post('/', (req: Request, res: Response) => {
         };
 
         testUsers.push(user);
-        res.status(201).json({ message: 'User added successfully'});
+        res.status(201).json({ newUser: user, message: 'User added successfully'});
     };
 });
 
